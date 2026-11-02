@@ -5,7 +5,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
 /* Layout: album 110 ô theo số Messier — ô đã chụp hiện ảnh, ô còn thiếu là khung trống chờ điền.
-   Mặc định giao diện tối (dùng ngoài trời đêm); nút góc phải chuyển sang giao diện sáng.
+   Mặc định giao diện Tự động: 06:00–18:00 giờ máy người xem dùng giao diện sáng, ngoài khung đó dùng giao diện tối
+   (dùng ngoài trời đêm). Nút góc phải chuyển vòng Tự động → Sáng → Tối.
    Màu nhấn lấy từ hai vạch phát xạ quen thuộc của dân chụp tinh vân: H-alpha (đỏ hồng) và OIII (xanh ngọc). */
 :root{
   color-scheme: dark;
@@ -221,7 +222,7 @@ const STR = {
     pickDir:"Mở thư mục ảnh", pickFiles:"Chọn ảnh", nightTip:"Tông đỏ giữ thị lực ban đêm",
     close:"Đóng ✕", prev:"← Trước", next:"Sau →",
     hint:"Bấm vào ảnh để xem kích thước thật và cuộn quanh; bấm lần nữa để thu lại vừa khung.",
-    toLight:"Chuyển sang giao diện sáng", toDark:"Chuyển sang giao diện tối",
+    themeTitle:(mode, now, next) => `Giao diện: ${{auto:"Tự động theo giờ", light:"Sáng", dark:"Tối"}[mode]}${mode==="auto" ? ` (đang ${now==="light"?"sáng":"tối"}, sáng 6:00–18:00)` : ""}. Bấm để chuyển sang ${{auto:"Tự động", light:"Sáng", dark:"Tối"}[next]}.`,
     aStatus:"Trạng thái", aSort:"Sắp xếp", aKind:"Loại thiên thể", aTypes:"Tiến độ theo loại", aSearch:"Tìm thiên thể",
     noMatch:"Không có thiên thể nào khớp bộ lọc.",
     noImages:"Chưa có ảnh nào được nạp. Bấm <b>Mở thư mục ảnh</b> và chọn thư mục chứa M1.jpg, M45.jpg…, hoặc đặt ảnh vào thư mục <b>images/</b> cạnh trang khi đưa lên host.",
@@ -242,7 +243,7 @@ const STR = {
     pickDir:"Open image folder", pickFiles:"Pick images", nightTip:"Red tint to protect night vision",
     close:"Close ✕", prev:"← Prev", next:"Next →",
     hint:"Click the image to view at full size and scroll around; click again to fit it to the screen.",
-    toLight:"Switch to light theme", toDark:"Switch to dark theme",
+    themeTitle:(mode, now, next) => `Theme: ${{auto:"Auto by time of day", light:"Light", dark:"Dark"}[mode]}${mode==="auto" ? ` (now ${now}, light 6:00–18:00)` : ""}. Click to switch to ${{auto:"Auto", light:"Light", dark:"Dark"}[next]}.`,
     aStatus:"Status", aSort:"Sort", aKind:"Object type", aTypes:"Progress by type", aSearch:"Search objects",
     noMatch:"No objects match these filters.",
     noImages:"No images loaded yet. Click <b>Open image folder</b> and choose the folder with M1.jpg, M45.jpg…, or put the images in an <b>images/</b> folder next to this page when hosting.",
@@ -290,13 +291,13 @@ const objs = CAT.map(([n,name,t,con,mag]) => ({ n, id:"M"+n, name, t, con, mag, 
 const byId = Object.fromEntries(objs.map(o => [o.id, o]));
 
 /* ===== Trạng thái giao diện (nhớ trên máy người xem) ===== */
-const ui = { q:"", st:"all", grp:new Set(), sort:"num", lang:"vi", theme:"dark" };
+const ui = { q:"", st:"all", grp:new Set(), sort:"num", lang:"vi", themeMode:"auto" };
 try {
   const s = JSON.parse(localStorage.getItem("messier-ui")||"{}");
   if (s.st) ui.st=s.st; if (s.sort) ui.sort=s.sort; if (s.grp) ui.grp=new Set(s.grp);
-  if (s.lang==="en"||s.lang==="vi") ui.lang=s.lang; if (s.theme==="light"||s.theme==="dark") ui.theme=s.theme;
+  if (s.lang==="en"||s.lang==="vi") ui.lang=s.lang; if (["auto","light","dark"].includes(s.themeMode)) ui.themeMode=s.themeMode;
 } catch(e){}
-function saveUi(){ try{ localStorage.setItem("messier-ui", JSON.stringify({st:ui.st, sort:ui.sort, grp:[...ui.grp], lang:ui.lang, theme:ui.theme})); }catch(e){} }
+function saveUi(){ try{ localStorage.setItem("messier-ui", JSON.stringify({st:ui.st, sort:ui.sort, grp:[...ui.grp], lang:ui.lang, themeMode:ui.themeMode})); }catch(e){} }
 const T = () => STR[ui.lang];
 const typeName = t => T().types[t];
 
@@ -306,14 +307,24 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;
 /* ===== Giao diện sáng/tối ===== */
 const ICON_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
 const ICON_MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
+const ICON_AUTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor" stroke="none"/></svg>';
+/* Chế độ Tự động: khung giờ sáng tính theo đồng hồ máy người xem (giờ địa phương) */
+const DAY_START = 6, DAY_END = 18;          // 06:00 → 17:59 là sáng
+const THEME_NEXT = { auto:"light", light:"dark", dark:"auto" };
+const autoTheme = () => { const h = new Date().getHours(); return h>=DAY_START && h<DAY_END ? "light" : "dark"; };
+const currentTheme = () => ui.themeMode==="auto" ? autoTheme() : ui.themeMode;
 function applyTheme(){
-  document.documentElement.classList.toggle("light", ui.theme==="light");
+  const now = currentTheme();
+  document.documentElement.classList.toggle("light", now==="light");
   const b = $("#themeBtn");
-  b.innerHTML = ui.theme==="light" ? ICON_MOON : ICON_SUN;
-  const label = ui.theme==="light" ? T().toDark : T().toLight;
+  b.innerHTML = { auto:ICON_AUTO, light:ICON_SUN, dark:ICON_MOON }[ui.themeMode];
+  const label = T().themeTitle(ui.themeMode, now, THEME_NEXT[ui.themeMode]);
   b.setAttribute("aria-label", label); b.title = label;
 }
-$("#themeBtn").addEventListener("click", () => { ui.theme = ui.theme==="light" ? "dark" : "light"; saveUi(); applyTheme(); });
+$("#themeBtn").addEventListener("click", () => { ui.themeMode = THEME_NEXT[ui.themeMode]; saveUi(); applyTheme(); });
+/* Trang mở lâu qua mốc 6:00/18:00 vẫn tự đổi: kiểm tra mỗi phút và khi quay lại tab */
+setInterval(() => { if (ui.themeMode==="auto") applyTheme(); }, 60000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && ui.themeMode==="auto") applyTheme(); });
 
 /* ===== Ngôn ngữ ===== */
 function applyLang(){
