@@ -1,0 +1,507 @@
+<title>Nhật ký Messier</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: album 110 ô theo số Messier — ô đã chụp hiện ảnh, ô còn thiếu là khung trống chờ điền.
+   Mặc định giao diện tối (dùng ngoài trời đêm); nút góc phải chuyển sang giao diện sáng.
+   Màu nhấn lấy từ hai vạch phát xạ quen thuộc của dân chụp tinh vân: H-alpha (đỏ hồng) và OIII (xanh ngọc). */
+:root{
+  color-scheme: dark;
+  --ink:#0b1019;      /* nền trời */
+  --panel:#121a28;    /* bề mặt nổi */
+  --line:#24304a;     /* viền, lưới */
+  --fg:#e7eaf1;       /* chữ chính */
+  --muted:#8b96ab;    /* chữ phụ */
+  --ha:#ec6f66;       /* H-alpha: đã chụp */
+  --oiii:#5cc3c4;     /* OIII: nhấn phụ */
+  --display:"Cormorant Garamond", "Times New Roman", serif;
+  --body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+html.light{
+  color-scheme: light;
+  --ink:#f3f5f9;
+  --panel:#ffffff;
+  --line:#d3d9e4;
+  --fg:#151b27;
+  --muted:#5b6579;
+  --ha:#c2433a;
+  --oiii:#17807f;
+}
+*,*::before,*::after{ box-sizing:border-box; }
+[hidden]{ display:none !important; }
+img{ max-width:100%; }
+html.night{ filter: grayscale(1) sepia(1) saturate(5) hue-rotate(-38deg) brightness(.62); }
+body{ margin:0; background:var(--ink); color:var(--fg); font-family:var(--body); font-size:15px; line-height:1.5; }
+.wrap{ max-width:1280px; margin:0 auto; padding-left:max(16px, env(safe-area-inset-left,0px)); padding-right:max(16px, env(safe-area-inset-right,0px)); padding-block:20px 64px; }
+button,input,select{ font:inherit; color:inherit; }
+:focus-visible{ outline:2px solid var(--oiii); outline-offset:2px; }
+
+/* Top bar: ngôn ngữ + giao diện */
+.topbar{ display:flex; justify-content:flex-end; gap:8px; margin-bottom:8px; }
+.icon-btn{ width:36px; height:34px; display:inline-grid; place-items:center; background:var(--panel); border:1px solid var(--line); border-radius:6px; cursor:pointer; }
+.icon-btn:hover{ border-color:var(--oiii); }
+.icon-btn svg{ width:18px; height:18px; }
+
+/* Header */
+header{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:24px 40px; align-items:end; padding-bottom:24px; border-bottom:1px solid var(--line); }
+.eyebrow{ font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--oiii); }
+h1{ font-family:var(--display); font-weight:600; font-size:clamp(40px,7vw,72px); line-height:1; margin:6px 0 12px; text-wrap:balance; }
+h1 em{ font-style:italic; font-weight:500; color:var(--ha); }
+.subtitle{ margin:0; font-size:18px; font-weight:500; }
+.author{ margin:2px 0 0; font-family:var(--mono); font-size:13px; letter-spacing:.06em; color:var(--muted); }
+.ring{ display:flex; align-items:center; gap:16px; }
+.ring svg{ width:120px; height:120px; display:block; }
+.ring .num{ font-family:var(--mono); font-variant-numeric:tabular-nums; }
+.ring .big{ font-size:34px; font-weight:600; line-height:1; }
+.ring .of{ color:var(--muted); font-size:13px; }
+.ring .pct{ color:var(--ha); font-size:13px; margin-top:4px; }
+
+/* Breakdown by type */
+.types{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px 24px; padding:20px 0; border-bottom:1px solid var(--line); }
+.type-row{ display:grid; grid-template-columns:1fr auto; gap:6px 8px; font-size:13px; }
+.type-row .lbl{ color:var(--muted); }
+.type-row .cnt{ font-family:var(--mono); font-variant-numeric:tabular-nums; }
+.bar{ grid-column:1/-1; height:4px; background:var(--line); border-radius:2px; overflow:hidden; }
+.bar i{ display:block; height:100%; background:var(--ha); }
+
+/* Toolbar */
+.tools{ display:flex; flex-wrap:wrap; gap:10px 12px; align-items:center; padding:18px 0; position:sticky; top:env(safe-area-inset-top,0px); z-index:5; background:var(--ink); }
+body::before{ content:""; position:fixed; inset:0 0 auto; height:env(safe-area-inset-top,0px); z-index:10; background:var(--ink); }
+.search{ flex:1 1 200px; min-width:0; background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:8px 12px; }
+.seg{ display:inline-flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+.seg button{ background:transparent; border:0; padding:8px 12px; cursor:pointer; color:var(--muted); font-size:13px; }
+.seg button[aria-pressed="true"]{ background:var(--panel); color:var(--fg); box-shadow:inset 0 -2px 0 var(--ha); }
+.seg.lang button{ padding:6px 10px; font-family:var(--mono); font-size:12px; }
+select{ background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:8px 10px; font-size:13px; }
+.btn{ background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:8px 12px; cursor:pointer; font-size:13px; display:inline-flex; gap:6px; align-items:center; }
+.btn:hover{ border-color:var(--oiii); }
+.btn.primary{ border-color:var(--ha); color:var(--ha); }
+.btn[aria-pressed="true"]{ border-color:var(--ha); color:var(--ha); }
+.chips{ display:flex; flex-wrap:wrap; gap:6px; width:100%; }
+.chip{ background:transparent; border:1px solid var(--line); border-radius:999px; padding:4px 12px; font-size:12.5px; cursor:pointer; color:var(--muted); }
+.chip[aria-pressed="true"]{ border-color:var(--oiii); color:var(--fg); background:color-mix(in srgb, var(--oiii) 14%, transparent); }
+.note{ font-size:13px; color:var(--muted); margin:0 0 16px; }
+.note b{ color:var(--fg); font-weight:500; }
+
+/* Grid */
+.grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(158px,1fr)); gap:18px 14px; }
+.tile{ display:flex; flex-direction:column; gap:8px; background:none; border:0; padding:0; text-align:left; cursor:pointer; min-width:0; }
+.frame{ aspect-ratio:1; max-width:100%; border-radius:4px; overflow:hidden; background:#0b1019; position:relative; transition:transform .2s; }
+.tile:hover .frame{ transform:translateY(-2px); }
+.frame img{ width:100%; height:100%; object-fit:cover; display:block; }
+.frame.empty{ background:transparent; border:1px dashed var(--line); display:grid; place-items:center; }
+.ghost{ font-family:var(--mono); font-weight:600; font-size:30px; color:var(--line); letter-spacing:.02em; }
+.frame .mag{ position:absolute; right:6px; bottom:6px; font-family:var(--mono); font-size:11px; color:var(--muted); }
+.frame:not(.empty) .mag{ background:rgb(11 16 25 / .7); color:#e7eaf1; padding:1px 5px; border-radius:3px; }
+.cap{ display:grid; gap:1px; min-width:0; }
+.cap .top{ display:flex; gap:8px; align-items:baseline; min-width:0; }
+.mid{ font-family:var(--mono); font-weight:600; font-size:14px; }
+.tile.got .mid{ color:var(--ha); }
+.name{ font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.meta{ font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.date{ font-family:var(--mono); font-size:11.5px; color:var(--oiii); }
+.empty-state{ grid-column:1/-1; color:var(--muted); padding:40px 0; text-align:center; }
+
+/* Lightbox: luôn nền tối để ảnh astro hiện đúng màu, dù trang đang ở giao diện sáng */
+.lb{
+  --fg:#e7eaf1; --muted:#8b96ab; --panel:#121a28; --line:#24304a; --ha:#ec6f66; --oiii:#5cc3c4;
+  color-scheme:dark; color:var(--fg);
+  position:fixed; inset:0; z-index:20; background:rgb(5 8 13 / .96); display:grid; grid-template-rows:minmax(0,1fr) auto;
+  padding:calc(16px + env(safe-area-inset-top,0px)) max(16px, env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px, env(safe-area-inset-left,0px));
+}
+.lb-stage{ position:relative; min-height:0; overflow:hidden; display:grid; place-items:center; }
+.lb-stage img{ position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:contain; cursor:zoom-in; }
+.lb-stage.zoomed{ overflow:auto; display:block; overscroll-behavior:contain; }
+.lb-stage.zoomed img{ position:static; width:auto; height:auto; max-width:none; cursor:zoom-out; display:block; margin:auto; }
+.lb-stage .ghost{ font-size:clamp(64px,14vw,140px); }
+.lb-hint{ font-size:12px; color:var(--muted); margin-top:6px; }
+.lb-info{ display:flex; flex-wrap:wrap; gap:8px 28px; align-items:flex-end; justify-content:space-between; padding-top:14px; max-width:1100px; width:100%; margin:0 auto; }
+.lb-info h2{ font-family:var(--display); font-weight:600; font-size:30px; margin:0; line-height:1.1; }
+.lb-info h2 .mid{ font-size:22px; margin-right:10px; color:var(--ha); }
+.lb-info dl{ display:grid; grid-template-columns:auto 1fr; gap:2px 12px; margin:8px 0 0; font-size:13px; }
+.lb-info dt{ color:var(--muted); }
+.lb-info dd{ margin:0; }
+.lb-nav{ display:flex; gap:8px; }
+.lb-x{ position:absolute; top:calc(12px + env(safe-area-inset-top,0px)); right:max(12px, env(safe-area-inset-right,0px)); z-index:1; }
+
+@media (max-width:640px){
+  header{ grid-template-columns:1fr; }
+  .grid{ grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); }
+}
+@media (prefers-reduced-motion:reduce){ *{ transition:none!important; } }
+</style>
+
+<div class="wrap">
+  <div class="topbar">
+    <div class="seg lang" role="group" aria-label="Language">
+      <button id="lang-vi" data-lang="vi" aria-pressed="true">VI</button>
+      <button id="lang-en" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+    <button class="icon-btn" id="themeBtn" type="button"></button>
+  </div>
+
+  <header>
+    <div>
+      <div class="eyebrow">Catalogue des Nébuleuses et des Amas d'Étoiles · 1781</div>
+      <h1 id="h1">Nhật ký <em>Messier</em></h1>
+      <p class="subtitle" data-i18n="subtitle">Hành trình Messier 110</p>
+      <p class="author">Nhan Nguyen</p>
+    </div>
+    <div class="ring" aria-live="polite">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <circle cx="60" cy="60" r="52" fill="none" stroke="var(--line)" stroke-width="6"/>
+        <circle id="ringArc" cx="60" cy="60" r="52" fill="none" stroke="var(--ha)" stroke-width="6" stroke-linecap="round" transform="rotate(-90 60 60)" stroke-dasharray="0 999"/>
+      </svg>
+      <div class="num">
+        <div class="big" id="cntGot">0</div>
+        <div class="of" data-i18n="of">trên 110 thiên thể</div>
+        <div class="pct" id="cntPct">0%</div>
+      </div>
+    </div>
+  </header>
+
+  <section class="types" id="types"></section>
+
+  <div class="tools">
+    <input class="search" id="q" type="search" data-i18n-ph="search">
+    <div class="seg" role="group" id="stGroup">
+      <button id="st-all" data-st="all" aria-pressed="true" data-i18n="all">Tất cả</button>
+      <button id="st-got" data-st="got" aria-pressed="false" data-i18n="got">Đã chụp</button>
+      <button id="st-miss" data-st="miss" aria-pressed="false" data-i18n="miss">Còn thiếu</button>
+    </div>
+    <select id="sort">
+      <option value="num" data-i18n="sNum">Theo số M</option>
+      <option value="mag" data-i18n="sMag">Sáng → mờ</option>
+      <option value="date" data-i18n="sDate">Ngày chụp mới nhất</option>
+      <option value="con" data-i18n="sCon">Theo chòm sao</option>
+    </select>
+    <label class="btn primary" for="pickDir" data-i18n="pickDir">Mở thư mục ảnh</label>
+    <input id="pickDir" type="file" webkitdirectory multiple hidden>
+    <label class="btn" for="pickFiles" data-i18n="pickFiles">Chọn ảnh</label>
+    <input id="pickFiles" type="file" accept="image/*,.json" multiple hidden>
+    <button class="btn" id="night" aria-pressed="false" data-i18n-title="nightTip">Night mode</button>
+    <div class="chips" id="chips" role="group"></div>
+  </div>
+
+  <p class="note" id="note"></p>
+  <main class="grid" id="grid"></main>
+</div>
+
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-labelledby="lbTitle" hidden>
+  <button class="btn lb-x" id="lbClose" data-i18n="close">Đóng ✕</button>
+  <div class="lb-stage" id="lbStage"></div>
+  <div class="lb-info">
+    <div>
+      <h2 id="lbTitle"></h2>
+      <dl id="lbMeta"></dl>
+      <div class="lb-hint" id="lbHint" data-i18n="hint"></div>
+    </div>
+    <div class="lb-nav">
+      <button class="btn" id="lbPrev" data-i18n="prev">← Trước</button>
+      <button class="btn" id="lbNext" data-i18n="next">Sau →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== CẤU HÌNH — sửa ở đây khi đưa lên host ===== */
+const IMAGE_DIR = "images/";      // ảnh gốc: images/M45.jpg
+const THUMB_DIR = "thumbs/";      // ảnh thu nhỏ (tuỳ chọn): thumbs/M45.jpg
+const CAPTURES  = "captures.json"; // thông tin buổi chụp (tuỳ chọn)
+
+/* ===== Chuỗi giao diện hai ngôn ngữ ===== */
+const STR = {
+  vi: {
+    h1:'Nhật ký <em>Messier</em>', subtitle:"Hành trình Messier 110", of:"trên 110 thiên thể",
+    search:"Tìm M42, Orion, Virgo…", all:"Tất cả", got:"Đã chụp", miss:"Còn thiếu",
+    sNum:"Theo số M", sMag:"Sáng → mờ", sDate:"Ngày chụp mới nhất", sCon:"Theo chòm sao",
+    pickDir:"Mở thư mục ảnh", pickFiles:"Chọn ảnh", nightTip:"Tông đỏ giữ thị lực ban đêm",
+    close:"Đóng ✕", prev:"← Trước", next:"Sau →",
+    hint:"Bấm vào ảnh để xem kích thước thật và cuộn quanh; bấm lần nữa để thu lại vừa khung.",
+    toLight:"Chuyển sang giao diện sáng", toDark:"Chuyển sang giao diện tối",
+    aStatus:"Trạng thái", aSort:"Sắp xếp", aKind:"Loại thiên thể", aTypes:"Tiến độ theo loại", aSearch:"Tìm thiên thể",
+    noMatch:"Không có thiên thể nào khớp bộ lọc.",
+    noImages:"Chưa có ảnh nào được nạp. Bấm <b>Mở thư mục ảnh</b> và chọn thư mục chứa M1.jpg, M45.jpg…, hoặc đặt ảnh vào thư mục <b>images/</b> cạnh trang khi đưa lên host.",
+    loaded:n => `Đã nạp <b>${n}</b> ảnh từ máy.`,
+    skipped:k => ` ${k} ảnh bị bỏ qua vì tên không theo dạng M45.jpg.`,
+    jsonErr:"captures.json có lỗi cú pháp JSON, đã bỏ qua phần thông tin buổi chụp.",
+    rType:"Loại", rCon:"Chòm sao", rMag:"Cấp sao", rStatus:"Trạng thái", yes:"Đã chụp", no:"Chưa chụp", fileDate:"Ngày file",
+    fields:{ date:"Ngày chụp", location:"Địa điểm", telescope:"Kính", camera:"Camera", mount:"Giá", filter:"Kính lọc", exposure:"Phơi sáng", integration:"Tổng thời gian", bortle:"Bortle", software:"Xử lý", note:"Ghi chú" },
+    groups:{ gal:"Thiên hà", gc:"Cụm sao cầu", oc:"Cụm sao mở", neb:"Tinh vân khuếch tán", pn:"Tinh vân hành tinh", other:"Khác" },
+    types:{ OC:"Cụm sao mở", GC:"Cụm sao cầu", DN:"Tinh vân khuếch tán", PN:"Tinh vân hành tinh", SNR:"Tàn dư siêu tân tinh",
+      GS:"Thiên hà xoắn ốc", GB:"Thiên hà xoắn ốc có thanh", GE:"Thiên hà elip", GL:"Thiên hà dạng thấu kính", GX:"Thiên hà bùng nổ sao",
+      DS:"Sao đôi", AS:"Nhóm sao (asterism)", SC:"Đám mây sao Ngân Hà" }
+  },
+  en: {
+    h1:'The <em>Messier</em> Log', subtitle:"Messier 110 Journey", of:"of 110 objects",
+    search:"Search M42, Orion, Virgo…", all:"All", got:"Captured", miss:"Missing",
+    sNum:"By M number", sMag:"Bright → faint", sDate:"Newest capture", sCon:"By constellation",
+    pickDir:"Open image folder", pickFiles:"Pick images", nightTip:"Red tint to protect night vision",
+    close:"Close ✕", prev:"← Prev", next:"Next →",
+    hint:"Click the image to view at full size and scroll around; click again to fit it to the screen.",
+    toLight:"Switch to light theme", toDark:"Switch to dark theme",
+    aStatus:"Status", aSort:"Sort", aKind:"Object type", aTypes:"Progress by type", aSearch:"Search objects",
+    noMatch:"No objects match these filters.",
+    noImages:"No images loaded yet. Click <b>Open image folder</b> and choose the folder with M1.jpg, M45.jpg…, or put the images in an <b>images/</b> folder next to this page when hosting.",
+    loaded:n => `Loaded <b>${n}</b> images from this device.`,
+    skipped:k => ` ${k} skipped because the file name isn't like M45.jpg.`,
+    jsonErr:"captures.json has a JSON syntax error, so session details were skipped.",
+    rType:"Type", rCon:"Constellation", rMag:"Magnitude", rStatus:"Status", yes:"Captured", no:"Not yet", fileDate:"File date",
+    fields:{ date:"Date", location:"Location", telescope:"Telescope", camera:"Camera", mount:"Mount", filter:"Filter", exposure:"Exposure", integration:"Integration", bortle:"Bortle", software:"Processing", note:"Notes" },
+    groups:{ gal:"Galaxies", gc:"Globular clusters", oc:"Open clusters", neb:"Diffuse nebulae", pn:"Planetary nebulae", other:"Other" },
+    types:{ OC:"Open cluster", GC:"Globular cluster", DN:"Diffuse nebula", PN:"Planetary nebula", SNR:"Supernova remnant",
+      GS:"Spiral galaxy", GB:"Barred spiral galaxy", GE:"Elliptical galaxy", GL:"Lenticular galaxy", GX:"Starburst galaxy",
+      DS:"Double star", AS:"Asterism", SC:"Milky Way star cloud" }
+  }
+};
+
+/* ===== Danh mục: [số, tên thường gọi, mã loại, chòm sao, cấp sao] ===== */
+const CAT = [
+[1,"Crab Nebula","SNR","Taurus",8.4],[2,"","GC","Aquarius",6.5],[3,"","GC","Canes Venatici",6.2],[4,"","GC","Scorpius",5.6],[5,"","GC","Serpens",5.6],
+[6,"Butterfly Cluster","OC","Scorpius",4.2],[7,"Ptolemy Cluster","OC","Scorpius",3.3],[8,"Lagoon Nebula","DN","Sagittarius",6.0],[9,"","GC","Ophiuchus",7.7],[10,"","GC","Ophiuchus",6.6],
+[11,"Wild Duck Cluster","OC","Scutum",6.3],[12,"","GC","Ophiuchus",6.7],[13,"Hercules Globular","GC","Hercules",5.8],[14,"","GC","Ophiuchus",7.6],[15,"Great Pegasus Cluster","GC","Pegasus",6.2],
+[16,"Eagle Nebula","DN","Serpens",6.0],[17,"Omega Nebula","DN","Sagittarius",6.0],[18,"","OC","Sagittarius",7.5],[19,"","GC","Ophiuchus",6.8],[20,"Trifid Nebula","DN","Sagittarius",6.3],
+[21,"","OC","Sagittarius",6.5],[22,"Sagittarius Cluster","GC","Sagittarius",5.1],[23,"","OC","Sagittarius",6.9],[24,"Sagittarius Star Cloud","SC","Sagittarius",4.6],[25,"","OC","Sagittarius",4.6],
+[26,"","OC","Scutum",8.0],[27,"Dumbbell Nebula","PN","Vulpecula",7.4],[28,"","GC","Sagittarius",6.8],[29,"","OC","Cygnus",7.1],[30,"","GC","Capricornus",7.2],
+[31,"Andromeda Galaxy","GS","Andromeda",3.4],[32,"","GE","Andromeda",8.1],[33,"Triangulum Galaxy","GS","Triangulum",5.7],[34,"","OC","Perseus",5.5],[35,"","OC","Gemini",5.3],
+[36,"","OC","Auriga",6.3],[37,"","OC","Auriga",6.2],[38,"","OC","Auriga",7.4],[39,"","OC","Cygnus",4.6],[40,"Winnecke 4","DS","Ursa Major",8.4],
+[41,"","OC","Canis Major",4.5],[42,"Orion Nebula","DN","Orion",4.0],[43,"De Mairan's Nebula","DN","Orion",9.0],[44,"Beehive Cluster","OC","Cancer",3.7],[45,"Pleiades","OC","Taurus",1.6],
+[46,"","OC","Puppis",6.1],[47,"","OC","Puppis",4.2],[48,"","OC","Hydra",5.5],[49,"","GE","Virgo",8.4],[50,"","OC","Monoceros",5.9],
+[51,"Whirlpool Galaxy","GS","Canes Venatici",8.4],[52,"","OC","Cassiopeia",7.3],[53,"","GC","Coma Berenices",7.6],[54,"","GC","Sagittarius",7.6],[55,"","GC","Sagittarius",6.3],
+[56,"","GC","Lyra",8.3],[57,"Ring Nebula","PN","Lyra",8.8],[58,"","GB","Virgo",9.7],[59,"","GE","Virgo",9.6],[60,"","GE","Virgo",8.8],
+[61,"","GS","Virgo",9.7],[62,"","GC","Ophiuchus",6.5],[63,"Sunflower Galaxy","GS","Canes Venatici",8.6],[64,"Black Eye Galaxy","GS","Coma Berenices",8.5],[65,"Leo Triplet","GS","Leo",9.3],
+[66,"Leo Triplet","GS","Leo",8.9],[67,"","OC","Cancer",6.1],[68,"","GC","Hydra",7.8],[69,"","GC","Sagittarius",7.6],[70,"","GC","Sagittarius",7.9],
+[71,"","GC","Sagitta",8.2],[72,"","GC","Aquarius",9.3],[73,"","AS","Aquarius",9.0],[74,"Phantom Galaxy","GS","Pisces",9.4],[75,"","GC","Sagittarius",8.5],
+[76,"Little Dumbbell Nebula","PN","Perseus",10.1],[77,"Cetus A","GS","Cetus",8.9],[78,"","DN","Orion",8.3],[79,"","GC","Lepus",7.7],[80,"","GC","Scorpius",7.3],
+[81,"Bode's Galaxy","GS","Ursa Major",6.9],[82,"Cigar Galaxy","GX","Ursa Major",8.4],[83,"Southern Pinwheel","GB","Hydra",7.5],[84,"","GL","Virgo",9.1],[85,"","GL","Coma Berenices",9.1],
+[86,"","GL","Virgo",8.9],[87,"Virgo A","GE","Virgo",8.6],[88,"","GS","Coma Berenices",9.6],[89,"","GE","Virgo",9.8],[90,"","GS","Virgo",9.5],
+[91,"","GB","Coma Berenices",10.2],[92,"","GC","Hercules",6.3],[93,"","OC","Puppis",6.0],[94,"Cat's Eye Galaxy","GS","Canes Venatici",8.2],[95,"","GB","Leo",9.7],
+[96,"","GS","Leo",9.2],[97,"Owl Nebula","PN","Ursa Major",9.9],[98,"","GS","Coma Berenices",10.1],[99,"","GS","Coma Berenices",9.9],[100,"","GS","Coma Berenices",9.3],
+[101,"Pinwheel Galaxy","GS","Ursa Major",7.9],[102,"Spindle Galaxy","GL","Draco",9.9],[103,"","OC","Cassiopeia",7.4],[104,"Sombrero Galaxy","GS","Virgo",8.0],[105,"","GE","Leo",9.3],
+[106,"","GS","Canes Venatici",8.4],[107,"","GC","Ophiuchus",7.9],[108,"Surfboard Galaxy","GS","Ursa Major",10.0],[109,"","GB","Ursa Major",9.8],[110,"","GE","Andromeda",8.5]
+];
+const GRP_OF = { OC:"oc", GC:"gc", DN:"neb", PN:"pn", SNR:"other", GS:"gal", GB:"gal", GE:"gal", GL:"gal", GX:"gal", DS:"other", AS:"other", SC:"other" };
+const GROUPS = ["gal","gc","oc","neb","pn","other"];
+
+const objs = CAT.map(([n,name,t,con,mag]) => ({ n, id:"M"+n, name, t, con, mag, grp:GRP_OF[t], thumb:null, full:null, info:{} }));
+const byId = Object.fromEntries(objs.map(o => [o.id, o]));
+
+/* ===== Trạng thái giao diện (nhớ trên máy người xem) ===== */
+const ui = { q:"", st:"all", grp:new Set(), sort:"num", lang:"vi", theme:"dark" };
+try {
+  const s = JSON.parse(localStorage.getItem("messier-ui")||"{}");
+  if (s.st) ui.st=s.st; if (s.sort) ui.sort=s.sort; if (s.grp) ui.grp=new Set(s.grp);
+  if (s.lang==="en"||s.lang==="vi") ui.lang=s.lang; if (s.theme==="light"||s.theme==="dark") ui.theme=s.theme;
+} catch(e){}
+function saveUi(){ try{ localStorage.setItem("messier-ui", JSON.stringify({st:ui.st, sort:ui.sort, grp:[...ui.grp], lang:ui.lang, theme:ui.theme})); }catch(e){} }
+const T = () => STR[ui.lang];
+const typeName = t => T().types[t];
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ===== Giao diện sáng/tối ===== */
+const ICON_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
+const ICON_MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
+function applyTheme(){
+  document.documentElement.classList.toggle("light", ui.theme==="light");
+  const b = $("#themeBtn");
+  b.innerHTML = ui.theme==="light" ? ICON_MOON : ICON_SUN;
+  const label = ui.theme==="light" ? T().toDark : T().toLight;
+  b.setAttribute("aria-label", label); b.title = label;
+}
+$("#themeBtn").addEventListener("click", () => { ui.theme = ui.theme==="light" ? "dark" : "light"; saveUi(); applyTheme(); });
+
+/* ===== Ngôn ngữ ===== */
+function applyLang(){
+  const t = T();
+  document.documentElement.lang = ui.lang;
+  $("#h1").innerHTML = t.h1;
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t[el.dataset.i18n]; });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el => { el.placeholder = t[el.dataset.i18nPh]; });
+  document.querySelectorAll("[data-i18n-title]").forEach(el => { el.title = t[el.dataset.i18nTitle]; });
+  $("#q").setAttribute("aria-label", t.aSearch);
+  $("#stGroup").setAttribute("aria-label", t.aStatus);
+  $("#sort").setAttribute("aria-label", t.aSort);
+  $("#chips").setAttribute("aria-label", t.aKind);
+  $("#types").setAttribute("aria-label", t.aTypes);
+  document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", b.dataset.lang===ui.lang));
+  applyTheme();
+  render();
+  if (!$("#lb").hidden) showLb();
+}
+document.querySelector(".lang").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; ui.lang = b.dataset.lang; saveUi(); applyLang(); });
+
+/* ===== Chế độ 1: ảnh nằm cạnh trang trên host (images/M45.jpg) ===== */
+function probe(url){ return new Promise(r => { const i = new Image(); i.onload = () => r(url); i.onerror = () => r(null); i.src = url; }); }
+async function loadHosted(){
+  try {
+    const res = await fetch(CAPTURES, {cache:"no-store"});
+    if (res.ok) mergeCaptures(await res.json());
+  } catch(e){}
+  await Promise.all(objs.map(async o => {
+    const th = await probe(THUMB_DIR + o.id + ".jpg");
+    const full = await probe(IMAGE_DIR + o.id + ".jpg") || await probe(IMAGE_DIR + o.id + ".JPG");
+    if (full || th){ o.full = full || th; o.thumb = th || full; }
+  }));
+  render();
+}
+function mergeCaptures(data){
+  for (const [k,v] of Object.entries(data||{})){
+    const o = byId[k.toUpperCase().replace(/\s+/g,"")];
+    if (o && v && typeof v === "object") o.info = {...o.info, ...v};
+  }
+}
+
+/* ===== Chế độ 2: mở thư mục ảnh ngay trên máy (không upload đi đâu cả) ===== */
+async function makeThumb(url){
+  const img = new Image(); img.src = url;
+  try { await img.decode(); } catch(e){ return url; }
+  const W = 480; if (img.naturalWidth <= W) return url;
+  const c = document.createElement("canvas");
+  c.width = W; c.height = Math.round(img.naturalHeight * W / img.naturalWidth);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return new Promise(r => c.toBlob(b => r(b ? URL.createObjectURL(b) : url), "image/jpeg", .85));
+}
+let note = null; // {kind, n, k}
+async function handleFiles(list){
+  const files = [...list];
+  const json = files.find(f => /^captures\.json$/i.test(f.name));
+  let jsonErr = false;
+  if (json){ try { mergeCaptures(JSON.parse(await json.text())); } catch(e){ jsonErr = true; } }
+  const imgs = files.map(f => ({f, m:f.name.match(/^M\s?(\d{1,3})\.(jpe?g|png|webp|tiff?)$/i)})).filter(x => x.m && byId["M"+(+x.m[1])]);
+  let done = 0;
+  const queue = imgs.slice();
+  async function worker(){
+    while (queue.length){
+      const {f, m} = queue.shift();
+      const o = byId["M"+(+m[1])];
+      o.full = URL.createObjectURL(f);
+      o.thumb = await makeThumb(o.full);
+      if (!o.info.date && f.lastModified) o.info._fileDate = new Date(f.lastModified).toISOString().slice(0,10);
+      done++; if (done % 8 === 0) render();
+    }
+  }
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  const skipped = files.filter(f => f.type.startsWith("image/")).length - imgs.length;
+  note = { n:imgs.length, k:skipped, jsonErr };
+  render();
+}
+$("#pickDir").addEventListener("change", e => handleFiles(e.target.files));
+$("#pickFiles").addEventListener("change", e => handleFiles(e.target.files));
+document.addEventListener("dragover", e => e.preventDefault());
+document.addEventListener("drop", e => { e.preventDefault(); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+
+/* ===== Hiển thị ===== */
+function visible(){
+  const q = ui.q.trim().toLowerCase();
+  let list = objs.filter(o =>
+    (ui.st==="all" || (ui.st==="got") === !!o.full) &&
+    (ui.grp.size===0 || ui.grp.has(o.grp)) &&
+    (!q || [o.id, "m "+o.n, o.name, o.con, STR.vi.types[o.t], STR.en.types[o.t]].join(" ").toLowerCase().includes(q) || q === String(o.n))
+  );
+  const d = o => o.info.date || o.info._fileDate || "";
+  if (ui.sort==="mag") list.sort((a,b) => a.mag-b.mag);
+  else if (ui.sort==="date") list.sort((a,b) => d(b).localeCompare(d(a)) || a.n-b.n);
+  else if (ui.sort==="con") list.sort((a,b) => a.con.localeCompare(b.con) || a.n-b.n);
+  else list.sort((a,b) => a.n-b.n);
+  return list;
+}
+let current = [];
+function render(){
+  const t = T();
+  const got = objs.filter(o => o.full).length;
+  $("#cntGot").textContent = got;
+  $("#cntPct").textContent = Math.round(got/110*100) + "%";
+  const C = 2*Math.PI*52; $("#ringArc").setAttribute("stroke-dasharray", `${C*got/110} ${C}`);
+
+  $("#types").innerHTML = GROUPS.map(g => {
+    const all = objs.filter(o => o.grp===g), have = all.filter(o => o.full).length;
+    return `<div class="type-row"><span class="lbl">${t.groups[g]}</span><span class="cnt">${have}/${all.length}</span><span class="bar"><i style="width:${have/all.length*100}%"></i></span></div>`;
+  }).join("");
+
+  $("#chips").innerHTML = GROUPS.map(g =>
+    `<button class="chip" id="chip-${g}" data-g="${g}" aria-pressed="${ui.grp.has(g)}">${t.groups[g]}</button>`).join("");
+  document.querySelectorAll("#stGroup button").forEach(b => b.setAttribute("aria-pressed", b.dataset.st===ui.st));
+  $("#sort").value = ui.sort;
+
+  current = visible();
+  $("#grid").innerHTML = current.length ? current.map(tile).join("") : `<div class="empty-state">${t.noMatch}</div>`;
+
+  let msg = "";
+  if (note) msg = t.loaded(note.n) + (note.k>0 ? t.skipped(note.k) : "") + (note.jsonErr ? " " + t.jsonErr : "");
+  else if (!got) msg = t.noImages;
+  $("#note").innerHTML = msg;
+  $("#note").hidden = !msg;
+}
+function tile(o){
+  const date = o.info.date || "";
+  const tn = typeName(o.t);
+  const frame = o.full
+    ? `<div class="frame"><img loading="lazy" src="${esc(o.thumb)}" alt="${o.id} ${esc(o.name)}"><span class="mag">${o.mag.toFixed(1)}<sup>m</sup></span></div>`
+    : `<div class="frame empty"><span class="ghost">${o.id}</span><span class="mag">${o.mag.toFixed(1)}<sup>m</sup></span></div>`;
+  return `<button class="tile ${o.full?"got":""}" data-id="${o.id}">${frame}
+    <div class="cap"><div class="top"><span class="mid">${o.id}</span><span class="name">${esc(o.name || tn)}</span></div>
+    <span class="meta">${o.name ? tn+" · " : ""}${o.con}</span>
+    ${date ? `<span class="date">${esc(date)}</span>` : ""}</div></button>`;
+}
+
+/* ===== Sự kiện ===== */
+$("#q").addEventListener("input", e => { ui.q = e.target.value; render(); });
+$("#sort").addEventListener("change", e => { ui.sort = e.target.value; saveUi(); render(); });
+$("#stGroup").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; ui.st = b.dataset.st; saveUi(); render(); });
+$("#chips").addEventListener("click", e => { const b = e.target.closest(".chip"); if (!b) return; ui.grp.has(b.dataset.g) ? ui.grp.delete(b.dataset.g) : ui.grp.add(b.dataset.g); saveUi(); render(); });
+$("#grid").addEventListener("click", e => { const t = e.target.closest(".tile"); if (t) openLb(t.dataset.id); });
+$("#night").addEventListener("click", e => { const on = document.documentElement.classList.toggle("night"); e.currentTarget.setAttribute("aria-pressed", on); });
+
+/* ===== Xem ảnh lớn ===== */
+let lbIdx = -1;
+function openLb(id){ lbIdx = current.findIndex(o => o.id===id); showLb(); $("#lb").hidden = false; $("#lbClose").focus(); }
+function showLb(){
+  const o = current[lbIdx]; if (!o) return;
+  const t = T();
+  const st = $("#lbStage");
+  if (!st.querySelector("img") || st.dataset.id !== o.id){
+    st.classList.remove("zoomed"); st.scrollTo(0,0);
+    st.innerHTML = o.full ? `<img src="${esc(o.full)}" alt="${o.id} ${esc(o.name)}">` : `<span class="ghost">${o.id}</span>`;
+    st.dataset.id = o.id;
+  }
+  $("#lbHint").hidden = !o.full;
+  $("#lbTitle").innerHTML = `<span class="mid">${o.id}</span>${esc(o.name || typeName(o.t))}`;
+  const rows = [[t.rType, typeName(o.t)], [t.rCon, o.con], [t.rMag, o.mag.toFixed(1)+"m"], [t.rStatus, o.full ? t.yes : t.no]];
+  for (const [k,v] of Object.entries(o.info)) if (!k.startsWith("_") && v) rows.push([t.fields[k] || k, v]);
+  if (!o.info.date && o.info._fileDate) rows.push([t.fileDate, o.info._fileDate]);
+  $("#lbMeta").innerHTML = rows.map(([k,v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+}
+function stepLb(d){ lbIdx = (lbIdx + d + current.length) % current.length; showLb(); }
+function closeLb(){ $("#lb").hidden = true; }
+$("#lbClose").addEventListener("click", closeLb);
+$("#lbPrev").addEventListener("click", () => stepLb(-1));
+$("#lbNext").addEventListener("click", () => stepLb(1));
+$("#lb").addEventListener("click", e => {
+  if (e.target.matches("#lbStage img")) {
+    const st = $("#lbStage"), img = e.target;
+    const zoomIn = !st.classList.contains("zoomed");
+    // Ghi lại vị trí bấm trên ảnh đang vừa khung để phóng to đúng chỗ đó
+    const r = img.getBoundingClientRect();
+    const s = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight);
+    const ox = (r.width - img.naturalWidth*s)/2, oy = (r.height - img.naturalHeight*s)/2;
+    const fx = Math.min(1, Math.max(0, (e.clientX - r.left - ox) / (img.naturalWidth*s)));
+    const fy = Math.min(1, Math.max(0, (e.clientY - r.top - oy) / (img.naturalHeight*s)));
+    st.classList.toggle("zoomed", zoomIn);
+    if (zoomIn) st.scrollTo(img.naturalWidth*fx - st.clientWidth/2, img.naturalHeight*fy - st.clientHeight/2);
+    return;
+  }
+  if (e.target.id==="lb" || e.target.id==="lbStage") closeLb();
+});
+document.addEventListener("keydown", e => {
+  if ($("#lb").hidden) return;
+  if (e.key==="Escape") closeLb(); else if (e.key==="ArrowRight") stepLb(1); else if (e.key==="ArrowLeft") stepLb(-1);
+});
+
+applyLang();
+loadHosted();
+</script>
